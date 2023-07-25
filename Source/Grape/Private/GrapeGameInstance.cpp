@@ -15,6 +15,10 @@ UGrapeGameInstance::UGrapeGameInstance() {
 
 void UGrapeGameInstance::Init() {
 	Super::Init();
+
+	if (this->IsDedicatedServerInstance()) {
+		CreateSession();
+	}
 }
 
 void UGrapeGameInstance::Login()
@@ -32,6 +36,43 @@ void UGrapeGameInstance::Login()
 			Identity->OnLoginCompleteDelegates->AddUObject(this, &UGrapeGameInstance::OnLoginComplete);
 			Identity->Login(0, Credentials);
 		}
+	}
+}
+
+void UGrapeGameInstance::CreateSession()
+{
+	OnlineSubsystem = Online::GetSubsystem(this->GetWorld());
+	IOnlineSessionPtr Session = OnlineSubsystem->GetSessionInterface();
+
+	TSharedRef<FOnlineSessionSettings> SessionSettings = MakeShared<FOnlineSessionSettings>();
+	SessionSettings->NumPublicConnections = 4;
+	SessionSettings->bIsDedicated = true;
+	SessionSettings->bShouldAdvertise = true; 
+	SessionSettings->bUsesPresence = false; 
+	SessionSettings->bAllowJoinViaPresence = false;
+	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
+
+	SessionSettings->Settings.Add(
+		FName(TEXT("SessionSetting")),
+		FOnlineSessionSetting(FString(TEXT("SettingValue")), EOnlineDataAdvertisementType::ViaOnlineService));
+
+	// Create a session and give the local name "MyLocalSessionName". This name is entirely local to the current player and isn't stored in EOS.
+	if (!Session->CreateSession(0, FName(TEXT("MyLocalSessionName")), *SessionSettings))
+	{
+		// Call didn't start, return error.
+	}
+
+	Session->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionComplete::FDelegate::CreateUObject(
+		this,
+		&UGrapeGameInstance::HandleCreateSessionComplete));
+}
+
+void UGrapeGameInstance::HandleCreateSessionComplete(
+	FName SessionName,
+	bool bWasSuccessful)
+{
+	if (bWasSuccessful) {
+		UE_LOG(LogTemp, Warning, TEXT("Session Created: true"));
 	}
 }
 
@@ -94,15 +135,9 @@ void UGrapeGameInstance::GetStats(TArray<FString> StatNames)
 	IOnlineIdentityPtr Identity = OnlineSubsystem->GetIdentityInterface();
 	IOnlineStatsPtr StatsInterface = OnlineSubsystem->GetStatsInterface();
 
-	// The list of users to fetch stats for.
 	TArray<TSharedRef<const FUniqueNetId>> Users;
 	Users.Add(Identity->GetUniquePlayerId(0).ToSharedRef());
 
-	// The stats to retrieve.
-	//TArray<FString> StatNames;
-	//StatNames.Add(TEXT("SCORE"));
-
-	// The first parameter is the user performing the querying.
 	StatsInterface->QueryStats(
 		Identity->GetUniquePlayerId(0).ToSharedRef(),
 		Users,
@@ -116,18 +151,14 @@ void UGrapeGameInstance::GetStats(TArray<FString> StatNames)
 				return;
 			}
 
-			// Each entry in UsersStatsResult is for a user.
 			for (auto QueriedStats : UsersStatsResult)
 			{
-				// Each entry in Stats is for a stat for that user.
 				for (auto KV : QueriedStats->Stats)
 				{
-					// KV.Key is the stat name.
 					int32 Value;
 					KV.Value.GetValue(Value);
 					UE_LOG(LogTemp, Warning, TEXT("Points: %s"), *FString::FromInt(Value));
 				}
 			}
 		}));
-
 }

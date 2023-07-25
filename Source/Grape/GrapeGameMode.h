@@ -13,6 +13,12 @@ class AGrapeGameMode : public AGameModeBase
 
 public:
 	AGrapeGameMode();
+
+	void RegisterExistingPlayers();
+
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	bool bAllExistingPlayersRegistered;
 };
 
 

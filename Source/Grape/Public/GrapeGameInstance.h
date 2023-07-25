@@ -21,6 +21,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Server")
 	void Login();
 
+	UFUNCTION(BlueprintCallable, Category = "Server")
+	void CreateSession();
+
+	void HandleCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+
 	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
 
 	UFUNCTION(BlueprintCallable, Category = "Server")
@@ -31,6 +36,7 @@ public:
 
 	virtual void Init() override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character")
 	bool isLoggedIn;
 
 	class IOnlineSubsystem* OnlineSubsystem;
