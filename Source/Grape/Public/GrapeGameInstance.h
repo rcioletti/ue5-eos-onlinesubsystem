@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSubsystemUtils.h"
 #include "GrapeGameInstance.generated.h"
 
 /**
@@ -23,6 +25,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Server")
 	void CreateSession();
+
+	UFUNCTION(BlueprintCallable, Category = "Server")
+	void FindAndJoinSession();
+
+	void OnFindSessionCompleted(bool bWasSuccessful);
+
+	void OnJoinSessionCompleted(FName SessionName, EOnJoinSessionCompleteResult::Type JoinResult);
+
+	UFUNCTION(BlueprintCallable, Category = "Server")
+	void DestroySession();
+
+	void HandleDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
 	void HandleCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 
@@ -46,4 +60,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character")
 	int32 ScoreAPI;
+
+	TSharedPtr<FOnlineSessionSearch> SessionSearch;
 };

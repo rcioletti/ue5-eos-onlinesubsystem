@@ -7,6 +7,7 @@
 #include "Interfaces/OnlineSessionInterface.h"
 #include "Interfaces/OnlineStatsInterface.h"
 #include "Interfaces/OnlineIdentityInterface.h"
+#include <Kismet\GameplayStatics.h>
 
 UGrapeGameInstance::UGrapeGameInstance() {
 
@@ -53,11 +54,11 @@ void UGrapeGameInstance::CreateSession()
 	SessionSettings->bAllowJoinViaPresenceFriendsOnly = false;
 
 	SessionSettings->Settings.Add(
-		FName(TEXT("SessionSetting")),
+		FName(TEXT("GrapeMatchmaking")),
 		FOnlineSessionSetting(FString(TEXT("SettingValue")), EOnlineDataAdvertisementType::ViaOnlineService));
 
 	// Create a session and give the local name "MyLocalSessionName". This name is entirely local to the current player and isn't stored in EOS.
-	if (!Session->CreateSession(0, FName(TEXT("MyLocalSessionName")), *SessionSettings))
+	if (!Session->CreateSession(0, FName(TEXT("GrapeSession")), *SessionSettings))
 	{
 		// Call didn't start, return error.
 	}
@@ -65,6 +66,103 @@ void UGrapeGameInstance::CreateSession()
 	Session->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionComplete::FDelegate::CreateUObject(
 		this,
 		&UGrapeGameInstance::HandleCreateSessionComplete));
+}
+
+void UGrapeGameInstance::FindAndJoinSession()
+{
+	OnlineSubsystem = Online::GetSubsystem(this->GetWorld());
+
+	if (OnlineSubsystem) {
+
+		IOnlineSessionPtr Session = OnlineSubsystem->GetSessionInterface();
+
+		if (Session) {
+
+			SessionSearch = MakeShareable(new FOnlineSessionSearch);
+			SessionSearch->bIsLanQuery = false;
+			SessionSearch->MaxSearchResults = 20;
+			SessionSearch->QuerySettings.SearchParams.Empty();
+			Session->OnFindSessionsCompleteDelegates.AddUObject(this, &UGrapeGameInstance::OnFindSessionCompleted);
+			Session->FindSessions(0, SessionSearch.ToSharedRef());
+		}
+	}
+}
+
+void UGrapeGameInstance::OnFindSessionCompleted(
+	bool bWasSuccessful)
+{
+	if (bWasSuccessful) {
+		OnlineSubsystem = Online::GetSubsystem(this->GetWorld());
+
+		if (OnlineSubsystem) {
+
+			IOnlineSessionPtr Session = OnlineSubsystem->GetSessionInterface();
+
+			if (Session) {
+
+				if (SessionSearch->SearchResults.Num() > 0) {
+
+					Session->OnJoinSessionCompleteDelegates.AddUObject(this, &UGrapeGameInstance::OnJoinSessionCompleted);
+					Session->JoinSession(0, FName("GrapeSession"), SessionSearch->SearchResults[0]);
+				}
+			}
+		}
+	}
+}
+
+void UGrapeGameInstance::OnJoinSessionCompleted(FName SessionName, EOnJoinSessionCompleteResult::Type JoinResult)
+{
+	if (JoinResult == EOnJoinSessionCompleteResult::Success) {
+
+		UE_LOG(LogTemp, Warning, TEXT("Session Joined Success"));
+
+		if (APlayerController* Controller = UGameplayStatics::GetPlayerController(GetWorld(), 0)) {
+			FString JoinAddress;
+
+			OnlineSubsystem = Online::GetSubsystem(this->GetWorld());
+
+			if (OnlineSubsystem) {
+
+				IOnlineSessionPtr Session = OnlineSubsystem->GetSessionInterface();
+
+				if (Session) {
+
+					Session->GetResolvedConnectString(FName("GrapeSession"), JoinAddress);
+					UE_LOG(LogTemp, Warning, TEXT("Join Address %s"), *JoinAddress);
+
+					if (!JoinAddress.IsEmpty()) {
+
+						Controller->ClientTravel(JoinAddress, TRAVEL_Absolute);
+					}
+				}
+			}
+		}
+	}
+}
+
+void UGrapeGameInstance::DestroySession()
+{
+	OnlineSubsystem = Online::GetSubsystem(this->GetWorld());
+	
+	if (OnlineSubsystem) {
+
+		IOnlineSessionPtr SessionInterface = OnlineSubsystem->GetSessionInterface();
+
+		if (SessionInterface) {
+			
+			SessionInterface->OnDestroySessionCompleteDelegates.AddUObject(this, &UGrapeGameInstance::HandleDestroySessionComplete);
+			SessionInterface->DestroySession(FName("GrapeSession"));
+		}
+	}
+}
+
+void UGrapeGameInstance::HandleDestroySessionComplete(
+	FName SessionName,
+	bool bWasSuccessful)
+{
+	if (bWasSuccessful) {
+		UE_LOG(LogTemp, Warning, TEXT("Session Destroyed: true"));
+	}
 }
 
 void UGrapeGameInstance::HandleCreateSessionComplete(
