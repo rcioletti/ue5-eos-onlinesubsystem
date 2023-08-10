@@ -1,4 +1,4 @@
-# Grape
+# Unreal Engine 5.2 EOS OnlineSubsystem
 ### EOS Implementation on Unreal Engine using OnlineSubsystem
 
 This project is the implementation of Epic Games Online Services via Unreal Engine.
